@@ -2,7 +2,7 @@ trigger:
 - main
 
 pool:
-  name: LocalPool   # your self-hosted pool
+  name: Default   # your self-hosted pool
 
 variables:
   SA_PASSWORD: $(SA_PASSWORD)   # set as secret variable in the pipeline or a variable group
