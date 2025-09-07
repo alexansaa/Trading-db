@@ -1,3 +1,6 @@
+variables:
+- group: trading-db-vars
+
 trigger:
 - main
 
@@ -18,12 +21,29 @@ stages:
 
     # Ensure target dir exists and write .env (keeps SA secret out of repo)
     - script: |
-        mkdir -p $(Build.SourcesDirectory)/docker
-        echo SA_PASSWORD=$(SA_PASSWORD) > $(Build.SourcesDirectory)/docker/.env
+        set -euo pipefail
+        # Ensure the secret reached the job
+        if [ -z "${SA_PASSWORD:-}" ]; then
+          echo "ERROR: SA_PASSWORD is empty. Did you authorize the variable group or mark the variable as secret?" >&2
+          exit 1
+        fi
+
+        mkdir -p docker
+        # Never echo secrets to logs; write directly to file
+        printf "SA_PASSWORD=%s\n" "$SA_PASSWORD" > docker/.env
+
+        # Convert to LF endings just in case this runs on Windows agents later
+        if command -v dos2unix >/dev/null 2>&1; then dos2unix docker/.env || true; fi
+
+        # Quick sanity (don’t print the secret)
+        echo "Wrote docker/.env (length=$(wc -c < docker/.env) bytes)"
       displayName: "Create .env with SA_PASSWORD"
+      env:
+        SA_PASSWORD: $(SA_PASSWORD)
 
     # Bring up stack using the compose in repo
     - script: |
+        set -euo pipefail
         cd docker
         docker compose pull || true
         docker compose up -d
