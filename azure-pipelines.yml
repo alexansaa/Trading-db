@@ -1,0 +1,71 @@
+trigger:
+- main
+
+variables:
+- group: trading-db-vars
+
+stages:
+- stage: Deploy_DB
+  displayName: Deploy SQL (Docker + Flyway) to local server
+  jobs:
+  - job: ship_and_apply
+    displayName: Copy files and run docker compose up
+    pool:
+      vmImage: 'ubuntu-latest'
+
+    steps:
+    - checkout: self
+      clean: true
+
+    # 1) Copy the docker/ and migrations/ to your server
+    - task: CopyFilesOverSSH@0
+      displayName: Copy docker + migrations to server
+      inputs:
+        sshEndpoint: 'MY_SERVER_SSH'
+        sourceFolder: '$(System.DefaultWorkingDirectory)'
+        # copy only what we need
+        contents: |
+          docker/**/*
+          migrations/**/*
+        targetFolder: '$(REMOTE_DIR)'
+        # This creates $(REMOTE_DIR)/docker and $(REMOTE_DIR)/migrations
+
+    # 2) Create .env on server using secret SA_PASSWORD
+    - task: SSH@0
+      displayName: Create/Update .env on server
+      inputs:
+        sshEndpoint: 'MY_SERVER_SSH'
+        commands: |
+          set -e
+          mkdir -p "$(REMOTE_DIR)/docker"
+          cat > "$(REMOTE_DIR)/docker/.env" << 'EOF'
+          SA_PASSWORD=$(SA_PASSWORD)
+          EOF
+          echo "Wrote .env to $(REMOTE_DIR)/docker"
+
+    # 3) Bring up the stack (no data loss)
+    - task: SSH@0
+      displayName: Docker compose up
+      inputs:
+        sshEndpoint: 'MY_SERVER_SSH'
+        commands: |
+          set -e
+          cd "$(REMOTE_DIR)/docker"
+          docker compose pull || true
+          docker compose up -d
+          # Show status
+          docker compose ps
+          # Tail flyway logs briefly to confirm migration success
+          docker compose logs --no-color flyway | tail -n 200
+
+    # 4) Validate basic health (db exists, tables created)
+    - task: SSH@0
+      displayName: Smoke test SQL
+      inputs:
+        sshEndpoint: 'MY_SERVER_SSH'
+        commands: |
+          set -e
+          cd "$(REMOTE_DIR)/docker"
+          docker exec trading-mssql /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P "$(SA_PASSWORD)" -C -Q "SELECT name FROM sys.databases;"
+          docker exec trading-mssql /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P "$(SA_PASSWORD)" -C -Q "USE trading; SELECT name FROM sys.tables ORDER BY name;"
+          docker exec trading-mssql /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P "$(SA_PASSWORD)" -C -Q "USE trading; SELECT installed_rank,version,description,success FROM dbo.flyway_schema_history ORDER BY installed_rank;"

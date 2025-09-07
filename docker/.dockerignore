@@ -1,0 +1,19 @@
+# Ignore git metadata
+.git
+.gitignore
+
+# Ignore local envs
+.env
+.env.*
+
+# Ignore host SQL data dirs
+mssql_data
+data
+
+# Ignore OS/IDE junk
+*.log
+*.tmp
+.DS_Store
+Thumbs.db
+.vscode
+.idea

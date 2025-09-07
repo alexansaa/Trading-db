@@ -1,0 +1,18 @@
+# Ignore local env files with secrets
+docker/.env
+docker/.env.*
+
+# Ignore SQL Server data volume if someone accidentally mounts to host
+mssql_data/
+data/
+
+# Ignore OS / IDE junk
+*.log
+*.tmp
+*.swp
+.DS_Store
+Thumbs.db
+
+# VSCode / JetBrains / others
+.vscode/
+.idea/
