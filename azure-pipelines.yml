@@ -32,9 +32,33 @@ stages:
 
     # Show Flyway output & smoke test
     - script: |
-        cd docker
-        docker compose logs --no-color flyway | tail -n 200
-        docker exec trading-mssql /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P "$(SA_PASSWORD)" -C -Q "SELECT name FROM sys.databases;"
-        docker exec trading-mssql /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P "$(SA_PASSWORD)" -C -Q "USE trading; SELECT name FROM sys.tables ORDER BY name;"
-        docker exec trading-mssql /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P "$(SA_PASSWORD)" -C -Q "USE trading; SELECT installed_rank,version,description,success FROM dbo.flyway_schema_history ORDER BY installed_rank;"
+        set -euo pipefail
+
+        # Wait until the SQL container is healthy
+        echo "Waiting for trading-mssql to be healthy..."
+        for i in {1..30}; do
+          STATUS=$(docker inspect --format '{{.State.Health.Status}}' trading-mssql || echo "unknown")
+          if [ "$STATUS" = "healthy" ]; then
+            echo "OK: trading-mssql is healthy."
+            break
+          fi
+          echo "Current status: $STATUS (attempt $i/30)"; sleep 3
+          if [ $i -eq 30 ]; then
+            echo "ERROR: SQL container not healthy in time"; exit 1
+          fi
+        done
+
+        # Show last part of Flyway logs
+        echo "==== Flyway logs (tail) ===="
+        docker compose -f docker/docker-compose.yml logs --no-color flyway | tail -n 200 || true
+
+        # Use the SA password from the environment (note: $SA_PASSWORD, not $(SA_PASSWORD))
+        PW="$SA_PASSWORD"
+
+        # Run smoke queries *inside* the SQL container
+        docker exec trading-mssql /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P "$PW" -C -Q "SELECT name FROM sys.databases;"
+        docker exec trading-mssql /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P "$PW" -C -Q "USE trading; SELECT name FROM sys.tables ORDER BY name;"
+        docker exec trading-mssql /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P "$PW" -C -Q "USE trading; SELECT installed_rank,version,description,success FROM dbo.flyway_schema_history ORDER BY installed_rank;"
       displayName: "Verify DB & migrations"
+      env:
+        SA_PASSWORD: $(SA_PASSWORD)
