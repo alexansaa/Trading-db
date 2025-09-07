@@ -35,7 +35,7 @@ stages:
         # Convert to LF endings just in case this runs on Windows agents later
         if command -v dos2unix >/dev/null 2>&1; then dos2unix docker/.env || true; fi
 
-        # Quick sanity (don’t print the secret)
+        # Quick sanity (dont print the secret)
         echo "Wrote docker/.env (length=$(wc -c < docker/.env) bytes)"
       displayName: "Create .env with SA_PASSWORD"
       env:
