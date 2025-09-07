@@ -1,3 +1,4 @@
+# Pull SA_PASSWORD from Library
 variables:
 - group: trading-db-vars
 
@@ -5,10 +6,7 @@ trigger:
 - main
 
 pool:
-  name: Default   # your self-hosted pool
-
-variables:
-  SA_PASSWORD: $(SA_PASSWORD)   # set as secret variable in the pipeline or a variable group
+  name: Default   # <-- make sure this matches your self-hosted agent pool name
 
 stages:
 - stage: Deploy_DB
@@ -19,7 +17,6 @@ stages:
     - checkout: self
       clean: true
 
-    # Ensure target dir exists and write .env (keeps SA secret out of repo)
     - script: |
         set -euo pipefail
         # Ensure the secret reached the job
@@ -29,19 +26,17 @@ stages:
         fi
 
         mkdir -p docker
-        # Never echo secrets to logs; write directly to file
+        # Write .env (do not echo secret to logs)
         printf "SA_PASSWORD=%s\n" "$SA_PASSWORD" > docker/.env
 
-        # Convert to LF endings just in case this runs on Windows agents later
+        # Normalize line endings if tool exists
         if command -v dos2unix >/dev/null 2>&1; then dos2unix docker/.env || true; fi
 
-        # Quick sanity (dont print the secret)
-        echo "Wrote docker/.env (length=$(wc -c < docker/.env) bytes)"
+        echo "Wrote docker/.env (bytes: $(wc -c < docker/.env))"
       displayName: "Create .env with SA_PASSWORD"
       env:
-        SA_PASSWORD: $(SA_PASSWORD)
+        SA_PASSWORD: $(SA_PASSWORD)   # injected from Variable Group
 
-    # Bring up stack using the compose in repo
     - script: |
         set -euo pipefail
         cd docker
@@ -50,11 +45,9 @@ stages:
         docker compose ps
       displayName: "docker compose up -d"
 
-    # Show Flyway output & smoke test
     - script: |
         set -euo pipefail
 
-        # Wait until the SQL container is healthy
         echo "Waiting for trading-mssql to be healthy..."
         for i in {1..30}; do
           STATUS=$(docker inspect --format '{{.State.Health.Status}}' trading-mssql || echo "unknown")
@@ -68,14 +61,11 @@ stages:
           fi
         done
 
-        # Show last part of Flyway logs
         echo "==== Flyway logs (tail) ===="
         docker compose -f docker/docker-compose.yml logs --no-color flyway | tail -n 200 || true
 
-        # Use the SA password from the environment (note: $SA_PASSWORD, not $(SA_PASSWORD))
         PW="$SA_PASSWORD"
 
-        # Run smoke queries *inside* the SQL container
         docker exec trading-mssql /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P "$PW" -C -Q "SELECT name FROM sys.databases;"
         docker exec trading-mssql /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P "$PW" -C -Q "USE trading; SELECT name FROM sys.tables ORDER BY name;"
         docker exec trading-mssql /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P "$PW" -C -Q "USE trading; SELECT installed_rank,version,description,success FROM dbo.flyway_schema_history ORDER BY installed_rank;"
