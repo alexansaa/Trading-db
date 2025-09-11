@@ -1,15 +1,19 @@
+name: trading-db
+
 services:
-  mssql:
+  sql:
     image: mcr.microsoft.com/mssql/server:2022-latest
-    container_name: trading-mssql
-    restart: unless-stopped
     environment:
-      - ACCEPT_EULA=Y
-      - SA_PASSWORD=${SA_PASSWORD}
+      ACCEPT_EULA: "Y"
+      SA_PASSWORD: ${SA_PASSWORD}      # provided by your pipeline or docker/.env
     ports:
-      - "1433:1433"
+      - "1433:1433"                     # optional; remove if you don't want host access
     volumes:
-      - mssql_data:/var/opt/mssql
+      - mssql-data:/var/opt/mssql
+    networks:
+      core:
+        aliases:
+          - trading-sql                 # <-- stable DNS name on trading-core
     healthcheck:
       test: ["CMD-SHELL", "/opt/mssql-tools18/bin/sqlcmd -S localhost,1433 -U sa -P \"$SA_PASSWORD\" -C -Q \"SELECT 1\" >/dev/null 2>&1 || exit 1"]
       interval: 10s
@@ -19,11 +23,12 @@ services:
   db-bootstrap:
     image: mcr.microsoft.com/mssql/server:2022-latest
     depends_on:
-      mssql:
+      sql:
         condition: service_healthy
+    networks: { core: {} }
     entrypoint: ["/bin/bash","-lc"]
     command: >
-      "/opt/mssql-tools18/bin/sqlcmd -S mssql,1433 -U sa -P ${SA_PASSWORD} -C
+      "/opt/mssql-tools18/bin/sqlcmd -S trading-sql,1433 -U sa -P ${SA_PASSWORD} -C
       -Q \"IF DB_ID('trading') IS NULL CREATE DATABASE trading;\""
 
   flyway:
@@ -31,15 +36,22 @@ services:
     depends_on:
       db-bootstrap:
         condition: service_completed_successfully
+    # EITHER pass settings via env (no conf file) …
+    environment:
+      FLYWAY_URL: jdbc:sqlserver://trading-sql:1433;database=trading;encrypt=true;trustServerCertificate=true
+      FLYWAY_USER: sa
+      FLYWAY_PASSWORD: ${SA_PASSWORD}
+      FLYWAY_LOCATIONS: filesystem:/flyway/sql
+      FLYWAY_BASELINE_ON_MIGRATE: "true"
     volumes:
-      - ../migrations:/flyway/sql
-    command:
-      - -url=jdbc:sqlserver://mssql:1433;database=trading;encrypt=true;trustServerCertificate=true
-      - -user=sa
-      - -password=${SA_PASSWORD}
-      - -locations=filesystem:/flyway/sql
-      - -baselineOnMigrate=true
-      - migrate
+      - ../migrations:/flyway/sql:ro
+    command: migrate
+    networks: { core: {} }
 
 volumes:
-  mssql_data:
+  mssql-data:
+
+networks:
+  core:
+    external: true
+    name: trading-core                  # <-- shared external network
