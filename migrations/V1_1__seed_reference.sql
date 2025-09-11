@@ -1,4 +1,3 @@
-USE trading;
 GO
 INSERT INTO dbo.strategies(code, description) VALUES
   ('TREND', 'Trend-following confirmation'),

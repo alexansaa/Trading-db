@@ -1,4 +1,3 @@
-USE trading;
 GO
 -- Create roles
 IF NOT EXISTS (SELECT 1 FROM sys.database_principals WHERE name='app_reader') CREATE ROLE app_reader;

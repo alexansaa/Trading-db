@@ -1,4 +1,3 @@
-USE trading;
 GO
 
 -- Table type for bulk upsert of bars from Python

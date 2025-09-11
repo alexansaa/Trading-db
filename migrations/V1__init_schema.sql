@@ -1,12 +1,3 @@
--- Create DB (if not already in Azure SQL/managed instance, comment this)
--- IF DB_ID('trading') IS NULL
--- #BEGIN
---   CREATE DATABASE trading;
--- END
--- GO
--- USE trading;
--- GO
-
 -- Reference
 CREATE TABLE dbo.symbols(
   id INT IDENTITY PRIMARY KEY,

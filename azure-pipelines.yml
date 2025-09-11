@@ -1,7 +1,3 @@
-# Pull SA_PASSWORD from Library
-variables:
-- group: trading-db-vars
-
 trigger:
 - main
 

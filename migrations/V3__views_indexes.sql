@@ -1,4 +1,3 @@
-USE trading;
 GO
 
 -- Helpful view: last close per symbol
