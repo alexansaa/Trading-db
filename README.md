@@ -13,7 +13,8 @@
   - [Usage](#usage)
   - [Run tests](#run-tests)
   - [Deployment](#deployment)
-  - [Database Schema](#databaseSchema)
+  - [Schema](#schema)
+  - [Migrations](#Migrations)
 - [👥 Authors](#authors)
 - [🔭 Future Features](#future-features)
 - [🤝 Contributing](#contributing)
@@ -93,9 +94,7 @@ Once started, the database will be available on:
   http://localhost:1433
 ```
 
-<p align="right">(<a href="#readme-top">back to top</a>)</p>
-
-### Database Schema
+### Schema
 
 The main schema is market, containing the following core tables:
 
@@ -104,8 +103,6 @@ PriceBar	Stores time-series data for stock prices (symbol, date, open, high, low
 Symbol	Lists tracked symbols and metadata.
 Source	Records the data provider (e.g., Tiingo).
 JobHistory	Logs data ingestion and update tasks.
-
-<p align="right">(<a href="#readme-top">back to top</a>)</p>
 
 ### Migrations
 
