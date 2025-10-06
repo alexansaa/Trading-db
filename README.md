@@ -31,6 +31,11 @@ It provides a unified data model for market prices, user sessions, trade configu
 
 The database is containerized with Docker, and version-controlled through Flyway migrations, enabling reproducible environments for development, certification, and production deployments.
 
+Other repos on the App Stack for this project:
+- [Trading App Front-end](https://github.com/alexansaa/TradingAppFrontEnd)
+- [Trading App Java Layer](https://github.com/alexansaa/TradingJavaLayer)
+- [Trading App Python Layer](https://github.com/alexansaa/TradingPythonLayer)
+
 ## 🛠 Built With <a name="built-with"></a>
 
 ### Tech Stack <a name="tech-stack"></a>
